@@ -506,26 +506,12 @@ test("parseMarkdownFiles parses Bold Format when format is specified as 'bold'",
   });
 });
 
-// Test that returns empty files when format is 'bold' but the input does not match 'Bold Format'
+// Test that returns empty files when format is 'bold' but the input does not match any format
 test("parseMarkdownFiles returns empty files when format is 'bold' but input does not match", () => {
   const markdownString = `
-### \`index.html\`
+This is just prose with no file headers.
 
-\`\`\`html
-<!-- HTML content -->
-\`\`\`
-
-### \`script.js\`
-
-\`\`\`javascript
-// JavaScript content
-\`\`\`
-
-### \`styles.css\`
-
-\`\`\`css
-/* CSS content */
-\`\`\`
+Another paragraph of text.
   `;
   const { files, format } = parseMarkdownFiles(markdownString, "bold");
   expect(format).toBe("Unknown Format");
@@ -591,4 +577,126 @@ Some additional description or instructions.
     "index.html": "<!-- HTML content -->",
     "script.js": "// JavaScript content",
   });
+});
+
+// Test a backtick-only header line followed by a fenced code block
+test("parseMarkdownFiles detects Backtick Format and parses files", () => {
+  const markdownString = `
+\`index.html\`
+
+\`\`\`html
+<!-- HTML content -->
+\`\`\`
+
+\`script.js\`
+
+\`\`\`javascript
+// JavaScript content
+\`\`\`
+
+\`styles.css\`
+
+\`\`\`css
+/* CSS content */
+\`\`\`
+  `;
+  const { files, format } = parseMarkdownFiles(markdownString);
+  expect(format).toBe("Backtick Format");
+  expect(files).toEqual({
+    "index.html": "<!-- HTML content -->",
+    "script.js": "// JavaScript content",
+    "styles.css": "/* CSS content */",
+  });
+});
+
+// Test a bold-wrapped name that itself contains backticks
+test("parseMarkdownFiles detects Bold Format with inner backticks", () => {
+  const markdownString = `
+**\`index.html\`**
+
+\`\`\`html
+<!-- HTML content -->
+\`\`\`
+
+**\`script.js\`**
+
+\`\`\`javascript
+// JavaScript content
+\`\`\`
+  `;
+  const { files, format } = parseMarkdownFiles(markdownString);
+  expect(format).toBe("Bold Format");
+  expect(files).toEqual({
+    "index.html": "<!-- HTML content -->",
+    "script.js": "// JavaScript content",
+  });
+});
+
+// Auto-detect still reports Bold Format for a plain bold header
+test("parseMarkdownFiles auto-detects Bold Format for a plain bold header", () => {
+  const markdownString = `
+**index.js**
+
+\`\`\`js
+// JavaScript content
+\`\`\`
+  `;
+  const { files, format } = parseMarkdownFiles(markdownString);
+  expect(format).toBe("Bold Format");
+  expect(files).toEqual({ "index.js": "// JavaScript content" });
+});
+
+// Explicit "bold" format with a normal bold input still parses via the bold path
+test("parseMarkdownFiles parses normal bold input via the bold path when format is 'bold'", () => {
+  const markdownString = `
+**index.js**
+
+\`\`\`js
+// JavaScript content
+\`\`\`
+  `;
+  const { files, format } = parseMarkdownFiles(markdownString, "bold");
+  expect(format).toBe("Bold Format");
+  expect(files).toEqual({ "index.js": "// JavaScript content" });
+});
+
+// Explicit "bold" format falls back to auto-detect for a standard heading
+test("parseMarkdownFiles falls back to auto-detect for a heading header when format is 'bold'", () => {
+  const markdownString = `
+### index.js
+
+\`\`\`js
+// JavaScript content
+\`\`\`
+  `;
+  const { files, format } = parseMarkdownFiles(markdownString, "bold");
+  expect(format).toBe("Standard Heading Format");
+  expect(files).toEqual({ "index.js": "// JavaScript content" });
+});
+
+// Explicit "bold" format falls back to auto-detect for a backtick-only header
+test("parseMarkdownFiles falls back to auto-detect for a backtick header when format is 'bold'", () => {
+  const markdownString = `
+\`index.js\`
+
+\`\`\`js
+// JavaScript content
+\`\`\`
+  `;
+  const { files, format } = parseMarkdownFiles(markdownString, "bold");
+  expect(format).toBe("Backtick Format");
+  expect(files).toEqual({ "index.js": "// JavaScript content" });
+});
+
+// Explicit "bold" format falls back to auto-detect for a colon header
+test("parseMarkdownFiles falls back to auto-detect for a colon header when format is 'bold'", () => {
+  const markdownString = `
+index.js:
+\`\`\`js
+// JavaScript content
+\`\`\`
+  `;
+  const { files, format } = parseMarkdownFiles(markdownString, "bold");
+  expect(format).toBe("Colon Format");
+  expect(files).toEqual({ "index.js": "// JavaScript content" });
 });

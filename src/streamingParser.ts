@@ -35,7 +35,8 @@ export class StreamingMarkdownParser {
 
   /**
    * An array of regex patterns for detecting file headers.
-   * Currently only supports Bold Format, but can be extended in the future.
+   * Currently only supports Bold Format and Backtick Format, but can be
+   * extended in the future.
    */
   private headerPatterns: {
     regex: RegExp;
@@ -43,8 +44,13 @@ export class StreamingMarkdownParser {
   }[] = [
     // Matches: **filename.js**
     {
-      regex: /^\s*\*\*([^\n*`]+?)\*\*(?:[^\n]*)\s*$/,
+      regex: /^\s*\*\*([^\n*]+?)\*\*(?:[^\n]*)\s*$/,
       format: "Bold Format",
+    },
+    // Matches: `filename.js`
+    {
+      regex: /^\s*`([^`]+)`\s*:?\s*$/,
+      format: "Backtick Format",
     },
   ];
 
@@ -125,6 +131,8 @@ export class StreamingMarkdownParser {
           if (format === "Bold Format") {
             // Remove anything in parentheses and trim
             fileName = fileName.replace(/\s*\([^)]*\).*$/, "").trim();
+            // Strip surrounding backticks from the name
+            fileName = fileName.replace(/^`+|`+$/g, "");
           }
 
           // Reset content tracking for new file
