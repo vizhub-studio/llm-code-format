@@ -1,6 +1,30 @@
 // parseMarkdownFiles.ts
 import { FileCollection } from "@vizhub/viz-types";
 
+/**
+ * Formats whose header regexes capture arbitrary text before a fence, so they
+ * can match prose (`### Notes.`, `Results:`, `# Results`) as if it were a
+ * filename. Names from these formats must pass {@link looksLikeFileName}.
+ */
+const AMBIGUOUS_FORMATS = new Set([
+  "Standard Heading Format",
+  "Colon Format",
+  "Hash Format",
+]);
+
+/**
+ * True when a captured name looks like a file rather than prose.
+ *
+ * Accepts a name with a file-extension suffix (`index.js`, `data.csv`) or a
+ * path separator (`path/to/file`); rejects anything containing whitespace.
+ * A trailing colon is ignored so a `### index.js:` heading is still accepted.
+ */
+function looksLikeFileName(raw: string): boolean {
+  const name = raw.trim().replace(/:+$/, "").trim();
+  if (name.length === 0 || /\s/.test(name)) return false;
+  return /\.[A-Za-z0-9]{1,10}$/.test(name) || name.includes("/");
+}
+
 export function parseMarkdownFiles(
   markdownString: string,
   format?: string,
@@ -100,6 +124,9 @@ export function parseMarkdownFiles(
           // Strip surrounding backticks from the name
           name = name.replace(/^`+|`+$/g, "");
         }
+        // Prose-prone formats must look like a filename; skip prose matches so
+        // a heading like `### Notes.` is not turned into a spurious file.
+        if (AMBIGUOUS_FORMATS.has(fmt) && !looksLikeFileName(name)) continue;
         const code = match[2].trim();
         matches[name] = code;
       }

@@ -19,6 +19,10 @@ See also [editcodewithai](https://github.com/vizhub-core/editcodewithai), a high
   - Numbered Bold Format (`1. **filename.js**`)
   - Numbered Backtick Format (`### 1. `filename.js``)
 
+  The prose-prone formats (Standard Heading, Colon, Hash) only accept names
+  that look like filenames (an extension or a path separator), so a document
+  heading such as `### Notes.` is not mistaken for a file.
+
 - Streaming parser for real-time code editing views
 - Serialize code files back to Markdown in a consistent format
 - TypeScript support with full type definitions
