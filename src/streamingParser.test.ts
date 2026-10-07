@@ -155,6 +155,28 @@ describe("StreamingMarkdownParser", () => {
     expect(codeLines).toEqual(["// JavaScript content", "// More content"]);
   });
 
+  it("should handle bold format with inner backticks", async () => {
+    const input = "**`index.html`**\n```\n<html>\n</html>\n```\n";
+    await parser.processChunk(input);
+    await parser.flushRemaining();
+
+    expect(fileNameChanges).toEqual([
+      { name: "index.html", format: "Bold Format" },
+    ]);
+    expect(codeLines).toEqual(["<html>", "</html>"]);
+  });
+
+  it("should detect a backtick-only header line", async () => {
+    const input = "`index.html`\n```\n<html>\n</html>\n```\n";
+    await parser.processChunk(input);
+    await parser.flushRemaining();
+
+    expect(fileNameChanges).toEqual([
+      { name: "index.html", format: "Backtick Format" },
+    ]);
+    expect(codeLines).toEqual(["<html>", "</html>"]);
+  });
+
   it("should capture all non-code, non-header lines", async () => {
     const input =
       "This is a regular text line\n" +

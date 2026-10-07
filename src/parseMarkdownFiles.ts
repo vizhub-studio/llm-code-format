@@ -5,10 +5,10 @@ export function parseMarkdownFiles(
   markdownString: string,
   format?: string,
 ): { files: FileCollection; format: string } {
-  const files: FileCollection = {};
-
   const backtickHeadingRegex =
     /^\s*###\s*`([^`]+)`\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
+  const bareBacktickFormatRegex =
+    /^\s*`([^`]+)`\s*:?\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
   const fileBoldFormatRegex =
     /^\s*###\s*File:\s*\*\*(.+?)\*\*\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
   const numberedBacktickFormatRegex =
@@ -19,7 +19,7 @@ export function parseMarkdownFiles(
     /^\s*(?!###|\*\*|`)([^\n#*`]+?):\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
   const hashFormatRegex = /^\s*# ([^\n`]+?)\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
   const boldFormatRegex =
-    /^\s*(?!###)\*\*([^\n*`]+?)\*\*(?:[^\n]*)\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
+    /^\s*(?!###)\*\*([^\n*]+?)\*\*(?:[^\n]*)\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
   const headingBoldFormatRegex =
     /^### \*\*([^\n`]+?)\*\*\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
   const numberedBoldFormatRegex =
@@ -31,6 +31,11 @@ export function parseMarkdownFiles(
       regex: backtickHeadingRegex,
       format: "Backtick-Heading Format",
       key: "backtick-heading",
+    },
+    {
+      regex: bareBacktickFormatRegex,
+      format: "Backtick Format",
+      key: "backtick",
     },
     {
       regex: fileBoldFormatRegex,
@@ -74,7 +79,40 @@ export function parseMarkdownFiles(
     },
   ];
 
-  let selectedRegexes = regexes;
+  // Process a list of regexes and stop after the first matching format
+  const parseWith = (
+    regexList: typeof regexes,
+  ): { files: FileCollection; format: string } => {
+    const parsedFiles: FileCollection = {};
+    let detectedFormat = "Unknown Format";
+
+    for (const { regex, format: fmt } of regexList) {
+      regex.lastIndex = 0; // Reset regex index
+      const matches: Record<string, string> = {};
+      let match;
+
+      while ((match = regex.exec(markdownString)) !== null) {
+        let name = match[1].trim();
+        // For Bold Format, strip out parentheses and any content after them
+        if (fmt === "Bold Format") {
+          // Remove anything in parentheses and trim
+          name = name.replace(/\s*\([^)]*\).*$/, "").trim();
+          // Strip surrounding backticks from the name
+          name = name.replace(/^`+|`+$/g, "");
+        }
+        const code = match[2].trim();
+        matches[name] = code;
+      }
+
+      if (Object.keys(matches).length > 0) {
+        Object.assign(parsedFiles, matches);
+        detectedFormat = fmt;
+        break; // Stop after the first matching format
+      }
+    }
+
+    return { files: parsedFiles, format: detectedFormat };
+  };
 
   if (format) {
     // Find the regex that matches the specified format
@@ -82,34 +120,16 @@ export function parseMarkdownFiles(
     if (!formatRegexEntry) {
       throw new Error(`Unsupported format: ${format}`);
     }
-    selectedRegexes = [formatRegexEntry];
-  }
 
-  let detectedFormat = "Unknown Format";
-
-  // Process each format and stop after the first matching format
-  for (const { regex, format: fmt } of selectedRegexes) {
-    regex.lastIndex = 0; // Reset regex index
-    const matches: Record<string, string> = {};
-    let match;
-
-    while ((match = regex.exec(markdownString)) !== null) {
-      let name = match[1].trim();
-      // For Bold Format, strip out parentheses and any content after them
-      if (fmt === "Bold Format") {
-        // Remove anything in parentheses and trim
-        name = name.replace(/\s*\([^)]*\).*$/, "").trim();
-      }
-      const code = match[2].trim();
-      matches[name] = code;
+    // Try the explicitly requested format first.
+    const explicitResult = parseWith([formatRegexEntry]);
+    if (Object.keys(explicitResult.files).length > 0) {
+      return explicitResult;
     }
 
-    if (Object.keys(matches).length > 0) {
-      Object.assign(files, matches);
-      detectedFormat = fmt;
-      break; // Stop after the first matching format
-    }
+    // Fall back to auto-detect when the requested format matched nothing.
+    return parseWith(regexes);
   }
 
-  return { files, format: detectedFormat };
+  return parseWith(regexes);
 }
