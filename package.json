@@ -1,6 +1,6 @@
 {
   "name": "llm-code-format",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Parsing and serialization of multiple code files in Markdown for LLMs",
   "type": "module",
   "main": "./dist/cjs/index.js",
