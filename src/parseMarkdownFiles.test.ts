@@ -700,3 +700,40 @@ index.js:
   expect(format).toBe("Colon Format");
   expect(files).toEqual({ "index.js": "// JavaScript content" });
 });
+
+// Prose-prone formats (standard heading / colon / hash) must not turn prose
+// into files — only filename-shaped names are accepted.
+test("rejects prose headings, colon, and hash blocks that are not filenames", () => {
+  const proseBlocks = [
+    `### Notes.\n\n\`\`\`js\n// content\n\`\`\``,
+    `Results:\n\`\`\`js\n// content\n\`\`\``,
+    `# Results\n\`\`\`js\n// content\n\`\`\``,
+  ];
+
+  for (const markdownString of proseBlocks) {
+    expect(parseMarkdownFiles(markdownString)).toEqual({
+      files: {},
+      format: "Unknown Format",
+    });
+    expect(parseMarkdownFiles(markdownString, "bold")).toEqual({
+      files: {},
+      format: "Unknown Format",
+    });
+  }
+});
+
+test("still parses filename-shaped standard heading, colon, and hash blocks", () => {
+  expect(
+    parseMarkdownFiles("### index.js\n\n\`\`\`js\n// content\n\`\`\`").files,
+  ).toEqual({ "index.js": "// content" });
+  // A trailing colon on a heading is still a filename.
+  expect(
+    parseMarkdownFiles("### index.js:\n\n\`\`\`js\n// content\n\`\`\`").files,
+  ).toEqual({ "index.js:": "// content" });
+  expect(
+    parseMarkdownFiles("index.js:\n\`\`\`js\n// content\n\`\`\`").files,
+  ).toEqual({ "index.js": "// content" });
+  expect(
+    parseMarkdownFiles("# index.js\n\`\`\`js\n// content\n\`\`\`").files,
+  ).toEqual({ "index.js": "// content" });
+});
