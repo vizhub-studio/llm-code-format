@@ -6,6 +6,23 @@ A TypeScript library for parsing and serializing multiple code files in Markdown
 
 See also [editcodewithai](https://github.com/vizhub-core/editcodewithai), a higher level code editing tool built on `llm-code-format`.
 
+## Maintainer workflow and format boundaries
+
+This package converts between multi-file Markdown representations and code-file collections. Its parser, formatter, and streaming parser are separate entry points in [`src/`](src/), with corresponding tests:
+
+- [`src/parseMarkdownFiles.ts`](src/parseMarkdownFiles.ts)
+- [`src/formatMarkdownFiles.ts`](src/formatMarkdownFiles.ts)
+- [`src/streamingParser.ts`](src/streamingParser.ts)
+
+```bash
+npm ci
+npm run typecheck
+npm test
+npm run build
+```
+
+The build creates **ESM**, **CommonJS**, and **type declarations**, as configured by the package scripts. Exact Markdown conventions and edge cases should be checked against parser tests before promising compatibility with arbitrary model output. A successful parse does not imply that the returned code is safe to execute.
+
 ## Features
 
 - Parse code blocks from various Markdown formats including:
