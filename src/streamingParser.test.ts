@@ -349,13 +349,13 @@ describe("StreamingMarkdownParser", () => {
   });
 
   it("should process sample streams and match expected files", async () => {
-    for (const [index, sampleStream] of sampleStreams.entries()) {
+    for (const [_index, sampleStream] of sampleStreams.entries()) {
       // Reset state for each sample stream
       const fileContents: Record<string, string[]> = {};
       let currentFileName: string | null = null;
 
       const streamCallbacks: StreamingParserCallbacks = {
-        onFileNameChange: async (fileName, format) => {
+        onFileNameChange: async (fileName, _format) => {
           currentFileName = fileName;
           if (!fileContents[fileName]) {
             fileContents[fileName] = [];

@@ -16,6 +16,7 @@ This package converts between multi-file Markdown representations and code-file 
 
 ```bash
 npm ci
+npm run lint
 npm run typecheck
 npm test
 npm run build
@@ -81,17 +82,17 @@ body { color: blue; }
 \`\`\`
 `;
 
-const { files, format } = parseMarkdownFiles(markdownString);
+const { files: parsedFiles, format } = parseMarkdownFiles(markdownString);
 console.log(format); // "Bold Format"
-console.log(files); // Object with filenames as keys and contents as values
+console.log(parsedFiles); // Object with filenames as keys and contents as values
 
 // Serialize files back to Markdown
-const files = {
+const filesToSerialize = {
   "index.html": "<h1>Hello World</h1>",
   "styles.css": "body { color: blue; }",
 };
 
-const markdown = formatMarkdownFiles(files);
+const markdown = formatMarkdownFiles(filesToSerialize);
 ```
 
 ### Recipe: Extract Files from Blog Posts
@@ -258,6 +259,7 @@ type StreamingParserCallbacks = {
   onFileNameChange: (fileName: string, format: string) => Promise<void>;
   onCodeLine: (line: string) => Promise<void>;
   onNonCodeLine?: (line: string) => Promise<void>;
+  onFileDelete?: (fileName: string) => Promise<void>;
 };
 ```
 

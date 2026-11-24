@@ -51,7 +51,8 @@ export function parseMarkdownFiles(
         if (
           !hasPrevious ||
           duplicateResolution === "last" ||
-          (duplicateResolution === "longest" && code.length > matches[name].length)
+          (duplicateResolution === "longest" &&
+            code.length > matches[name].length)
         ) {
           matches[name] = code;
         }
