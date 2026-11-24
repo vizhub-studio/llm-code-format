@@ -1,3 +1,5 @@
+import { matchStreamingFilename } from "./filenameFormats.js";
+
 export type StreamingParserCallbacks = {
   /**
    * Called when a file header is detected outside a code fence.
@@ -32,27 +34,6 @@ export class StreamingMarkdownParser {
   private detectedFormat: string = "Unknown Format";
   private callbacks: StreamingParserCallbacks;
   private currentFileHasContent: boolean = false;
-
-  /**
-   * An array of regex patterns for detecting file headers.
-   * Currently only supports Bold Format and Backtick Format, but can be
-   * extended in the future.
-   */
-  private headerPatterns: {
-    regex: RegExp;
-    format: string;
-  }[] = [
-    // Matches: **filename.js**
-    {
-      regex: /^\s*\*\*([^\n*]+?)\*\*(?:[^\n]*)\s*$/,
-      format: "Bold Format",
-    },
-    // Matches: `filename.js`
-    {
-      regex: /^\s*`([^`]+)`\s*:?\s*$/,
-      format: "Backtick Format",
-    },
-  ];
 
   constructor(callbacks: StreamingParserCallbacks) {
     this.callbacks = callbacks;
@@ -122,38 +103,15 @@ export class StreamingMarkdownParser {
         this.currentFileHasContent = true;
       }
     } else {
-      // Outside a code fence, check for file header patterns.
-      for (const { regex, format } of this.headerPatterns) {
-        const match = regex.exec(line);
-        if (match) {
-          let fileName = match[1].trim();
-          // For Bold Format, strip out parentheses and any content after them
-          if (format === "Bold Format") {
-            // Remove anything in parentheses and trim
-            fileName = fileName.replace(/\s*\([^)]*\).*$/, "").trim();
-            // Strip surrounding backticks from the name
-            fileName = fileName.replace(/^`+|`+$/g, "");
-          }
-
-          // Reset content tracking for new file
-          this.currentFileName = fileName;
-          this.currentFileHasContent = false;
-          this.detectedFormat = format;
-          await this.callbacks.onFileNameChange(fileName, format);
-          break; // Stop after the first matching header is found.
-        }
-      }
-      // Non-header lines outside code fences
-      let isHeader = false;
-      for (const { regex } of this.headerPatterns) {
-        if (regex.test(line)) {
-          isHeader = true;
-          break;
-        }
-      }
-
-      // If it's not a header and the callback exists, call it
-      if (!isHeader && this.callbacks.onNonCodeLine) {
+      const header = matchStreamingFilename(line);
+      if (header) {
+        const { fileName, format } = header;
+        // Reset content tracking for new file.
+        this.currentFileName = fileName;
+        this.currentFileHasContent = false;
+        this.detectedFormat = format;
+        await this.callbacks.onFileNameChange(fileName, format);
+      } else if (this.callbacks.onNonCodeLine) {
         await this.callbacks.onNonCodeLine(line);
       }
     }
