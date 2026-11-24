@@ -8,10 +8,26 @@ import {
   normalizePrefixedBoldHeaders,
 } from "./filenameFormats.js";
 
+export type DuplicateFilenameResolution = "last" | "first" | "longest";
+
+export interface ParseMarkdownFilesOptions {
+  /** Resolve repeated normalized filenames in the selected batch format. */
+  duplicateResolution?: DuplicateFilenameResolution;
+}
+
 export function parseMarkdownFiles(
   markdownString: string,
   format?: string,
+  options: ParseMarkdownFilesOptions = {},
 ): { files: FileCollection; format: string } {
+  const duplicateResolution = options.duplicateResolution ?? "last";
+  if (
+    duplicateResolution !== "last" &&
+    duplicateResolution !== "first" &&
+    duplicateResolution !== "longest"
+  ) {
+    throw new Error(`Unsupported duplicate resolution: ${duplicateResolution}`);
+  }
   const regexes = getBatchFilenamePatterns();
   const normalizedMarkdown = normalizePrefixedBoldHeaders(markdownString);
 
@@ -31,7 +47,14 @@ export function parseMarkdownFiles(
         const name = normalizeFileName(match[1], fmt);
         if (!isAcceptedBatchFileName(name, fmt)) continue;
         const code = match[2].trim();
-        matches[name] = code;
+        const hasPrevious = Object.prototype.hasOwnProperty.call(matches, name);
+        if (
+          !hasPrevious ||
+          duplicateResolution === "last" ||
+          (duplicateResolution === "longest" && code.length > matches[name].length)
+        ) {
+          matches[name] = code;
+        }
       }
 
       if (Object.keys(matches).length > 0) {
