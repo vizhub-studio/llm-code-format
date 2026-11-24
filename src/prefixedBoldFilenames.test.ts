@@ -177,7 +177,9 @@ test("prefixed headers preserve explicit deletion and non-deletion behavior", as
 test("incomplete streams do not trigger deletion", async () => {
   const header = "### Updated **index.js**";
   expect(parseMarkdownFiles(header).files).toEqual({});
-  expect((await stream([header])).names).toEqual([{ name: "index.js", format }]);
+  expect((await stream([header])).names).toEqual([
+    { name: "index.js", format },
+  ]);
   const incomplete = header + "\n" + fence + "js\n";
   expect(parseMarkdownFiles(incomplete).files).toEqual({});
   const result = await stream(Array.from(incomplete));

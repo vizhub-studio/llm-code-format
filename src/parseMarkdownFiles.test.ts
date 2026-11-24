@@ -724,16 +724,16 @@ test("rejects prose headings, colon, and hash blocks that are not filenames", ()
 
 test("still parses filename-shaped standard heading, colon, and hash blocks", () => {
   expect(
-    parseMarkdownFiles("### index.js\n\n\`\`\`js\n// content\n\`\`\`").files,
+    parseMarkdownFiles("### index.js\n\n```js\n// content\n```").files,
   ).toEqual({ "index.js": "// content" });
   // A trailing colon on a heading is still a filename.
   expect(
-    parseMarkdownFiles("### index.js:\n\n\`\`\`js\n// content\n\`\`\`").files,
+    parseMarkdownFiles("### index.js:\n\n```js\n// content\n```").files,
   ).toEqual({ "index.js:": "// content" });
+  expect(parseMarkdownFiles("index.js:\n```js\n// content\n```").files).toEqual(
+    { "index.js": "// content" },
+  );
   expect(
-    parseMarkdownFiles("index.js:\n\`\`\`js\n// content\n\`\`\`").files,
-  ).toEqual({ "index.js": "// content" });
-  expect(
-    parseMarkdownFiles("# index.js\n\`\`\`js\n// content\n\`\`\`").files,
+    parseMarkdownFiles("# index.js\n```js\n// content\n```").files,
   ).toEqual({ "index.js": "// content" });
 });

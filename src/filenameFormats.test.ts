@@ -132,10 +132,16 @@ test.each(["### Notes.", "Results:", "# Results"])(
     const prose: string[] = [];
     const deleted: string[] = [];
     const parser = new StreamingMarkdownParser({
-      onFileNameChange: async (name) => { names.push(name); },
+      onFileNameChange: async (name) => {
+        names.push(name);
+      },
       onCodeLine: async () => {},
-      onNonCodeLine: async (line) => { prose.push(line); },
-      onFileDelete: async (name) => { deleted.push(name); },
+      onNonCodeLine: async (line) => {
+        prose.push(line);
+      },
+      onFileDelete: async (name) => {
+        deleted.push(name);
+      },
     });
     await parser.processChunk([header, "```", "```", ""].join("\n"));
     await parser.flushRemaining();
@@ -150,14 +156,24 @@ test.each(["### notes.md", "notes.md:", "# notes.md"])(
   async (header) => {
     const events: string[] = [];
     const parser = new StreamingMarkdownParser({
-      onFileNameChange: async (name) => { events.push(`header:${name}`); },
-      onCodeLine: async (line) => { events.push(`code:${line}`); },
-      onNonCodeLine: async (line) => { events.push(`prose:${line}`); },
+      onFileNameChange: async (name) => {
+        events.push(`header:${name}`);
+      },
+      onCodeLine: async (line) => {
+        events.push(`code:${line}`);
+      },
+      onNonCodeLine: async (line) => {
+        events.push(`prose:${line}`);
+      },
     });
     await parser.processChunk(header + "\n\n");
     expect(events).toEqual([]);
     await parser.processChunk("An explanation.\n");
-    expect(events).toEqual([`prose:${header}`, "prose:", "prose:An explanation."]);
+    expect(events).toEqual([
+      `prose:${header}`,
+      "prose:",
+      "prose:An explanation.",
+    ]);
     events.length = 0;
     await parser.processChunk(header + "\n\n");
     await parser.processChunk("```js\n");
@@ -174,9 +190,13 @@ test.each(["### notes.md", "notes.md:", "# notes.md"])(
     const names: string[] = [];
     const prose: string[] = [];
     const parser = new StreamingMarkdownParser({
-      onFileNameChange: async (name) => { names.push(name); },
+      onFileNameChange: async (name) => {
+        names.push(name);
+      },
       onCodeLine: async () => {},
-      onNonCodeLine: async (line) => { prose.push(line); },
+      onNonCodeLine: async (line) => {
+        prose.push(line);
+      },
     });
     await parser.processChunk(header + "\n\n");
     await parser.flushRemaining();
@@ -189,35 +209,72 @@ test.each(["### notes.md", "notes.md:", "# notes.md"])(
 test.each([
   ["### 1. `src/app.ts`", "Numbered Backtick Format"],
   ["1. **src/app.ts**", "Numbered Bold Format"],
-])("numbered header %s permits intervening commentary", async (header, format) => {
-  const input = [header + ": updated", "Explanation.", "", "```ts", "export {};", "```"].join("\n");
-  const names: Array<{ name: string; format: string }> = [];
-  const code: string[] = [];
-  const parser = new StreamingMarkdownParser({
-    onFileNameChange: async (name, format) => { names.push({ name, format }); },
-    onCodeLine: async (line) => { code.push(line); },
-  });
-  for (const character of input) await parser.processChunk(character);
-  await parser.flushRemaining();
-  expect(parseMarkdownFiles(input)).toEqual({ files: { "src/app.ts": "export {};" }, format });
-  expect(names).toEqual([{ name: "src/app.ts", format }]);
-  expect(code).toEqual(["export {};"]);
-});
+])(
+  "numbered header %s permits intervening commentary",
+  async (header, format) => {
+    const input = [
+      header + ": updated",
+      "Explanation.",
+      "",
+      "```ts",
+      "export {};",
+      "```",
+    ].join("\n");
+    const names: Array<{ name: string; format: string }> = [];
+    const code: string[] = [];
+    const parser = new StreamingMarkdownParser({
+      onFileNameChange: async (name, format) => {
+        names.push({ name, format });
+      },
+      onCodeLine: async (line) => {
+        code.push(line);
+      },
+    });
+    for (const character of input) await parser.processChunk(character);
+    await parser.flushRemaining();
+    expect(parseMarkdownFiles(input)).toEqual({
+      files: { "src/app.ts": "export {};" },
+      format,
+    });
+    expect(names).toEqual([{ name: "src/app.ts", format }]);
+    expect(code).toEqual(["export {};"]);
+  },
+);
 
 test("streaming switches formats and ignores header-like lines inside fences", async () => {
   const names: Array<{ name: string; format: string }> = [];
   const code: string[] = [];
   const deleted: string[] = [];
   const parser = new StreamingMarkdownParser({
-    onFileNameChange: async (name, format) => { names.push({ name, format }); },
-    onCodeLine: async (line) => { code.push(line); },
-    onFileDelete: async (name) => { deleted.push(name); },
+    onFileNameChange: async (name, format) => {
+      names.push({ name, format });
+    },
+    onCodeLine: async (line) => {
+      code.push(line);
+    },
+    onFileDelete: async (name) => {
+      deleted.push(name);
+    },
   });
   const input = [
-    "### File: **index.js**", "```", "# fake.js", "### fake.ts", "fake.css:", "```",
-    "styles.css:", "", "```", "```",
-    "### Updated **src/app.ts**", "```", "keep", "```",
-    "2. **data.csv**", "```", "1,2", "```",
+    "### File: **index.js**",
+    "```",
+    "# fake.js",
+    "### fake.ts",
+    "fake.css:",
+    "```",
+    "styles.css:",
+    "",
+    "```",
+    "```",
+    "### Updated **src/app.ts**",
+    "```",
+    "keep",
+    "```",
+    "2. **data.csv**",
+    "```",
+    "1,2",
+    "```",
   ].join("\n");
   for (const character of input) await parser.processChunk(character);
   await parser.flushRemaining();
@@ -227,6 +284,12 @@ test("streaming switches formats and ignores header-like lines inside fences", a
     { name: "src/app.ts", format: "Bold Format" },
     { name: "data.csv", format: "Numbered Bold Format" },
   ]);
-  expect(code).toEqual(["# fake.js", "### fake.ts", "fake.css:", "keep", "1,2"]);
+  expect(code).toEqual([
+    "# fake.js",
+    "### fake.ts",
+    "fake.css:",
+    "keep",
+    "1,2",
+  ]);
   expect(deleted).toEqual(["styles.css"]);
 });
