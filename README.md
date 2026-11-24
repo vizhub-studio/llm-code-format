@@ -131,7 +131,7 @@ fs.readdirSync(blogDir)
 
 ## API
 
-### parseMarkdownFiles(markdownString: string, format?: string)
+### parseMarkdownFiles(markdownString: string, format?: string, options?: ParseMarkdownFilesOptions)
 
 Parses a Markdown string containing code blocks and returns an object with:
 
@@ -150,6 +150,29 @@ Optional `format` parameter to specify a particular format to parse:
 - 'bold'
 - 'hash'
 - 'numbered-bold'
+
+#### Duplicate filename resolution
+
+The optional third argument accepts `duplicateResolution`: `"last"` (default),
+`"first"`, or `"longest"`. Use `undefined` for the format to auto-detect it:
+
+```typescript
+const { files } = parseMarkdownFiles(markdownString, undefined, {
+  duplicateResolution: "longest",
+});
+```
+
+Policies apply to repeated normalized filenames within the selected batch format:
+
+- `last`: keep the last block, including an empty block (existing behavior).
+- `first`: keep the first block, including an empty block.
+- `longest`: keep the block with the most characters after trimming outer
+  whitespace; ties keep the first block. A nonempty block wins over an empty one.
+
+`longest` can protect complete files from later explanatory snippets, but it is
+only a heuristic and may discard an intentional shorter revision or deletion.
+Format priority and explicit-format fallback are unchanged. This option does not
+change streaming callbacks, which emit each block as it arrives.
 
 ### formatMarkdownFiles(files: FileCollection)
 
