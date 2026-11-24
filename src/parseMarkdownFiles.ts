@@ -5,6 +5,7 @@ import {
   getBatchFilenamePatterns,
   isAcceptedBatchFileName,
   normalizeFileName,
+  normalizePrefixedBoldHeaders,
 } from "./filenameFormats.js";
 
 export function parseMarkdownFiles(
@@ -12,6 +13,7 @@ export function parseMarkdownFiles(
   format?: string,
 ): { files: FileCollection; format: string } {
   const regexes = getBatchFilenamePatterns();
+  const normalizedMarkdown = normalizePrefixedBoldHeaders(markdownString);
 
   // Process a list of regexes and stop after the first matching format
   const parseWith = (
@@ -25,7 +27,7 @@ export function parseMarkdownFiles(
       const matches: Record<string, string> = {};
       let match;
 
-      while ((match = regex.exec(markdownString)) !== null) {
+      while ((match = regex.exec(normalizedMarkdown)) !== null) {
         const name = normalizeFileName(match[1], fmt);
         if (!isAcceptedBatchFileName(name, fmt)) continue;
         const code = match[2].trim();
