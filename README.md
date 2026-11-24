@@ -29,14 +29,15 @@ The build creates **ESM**, **CommonJS**, and **type declarations**, as configure
   - Bold Format (`**filename.js**`), including file-action prefixes such as
     `### Updated **filename.js**`, `### Modified **src/app.ts**`, and
     `### New file: **App.tsx**`.
-  - Backtick-Heading Format (`### `filename.js``)
+  - Backtick Format (`` `filename.js` ``)
+  - Backtick-Heading Format (`` ### `filename.js` ``)
   - Standard Heading Format (`### filename.js`)
   - Colon Format (`filename.js:`)
   - Hash Format (`# filename.js`)
   - File Bold Format (`### File: **filename.js**`)
   - Heading Bold Format (`### **filename.js**`)
   - Numbered Bold Format (`1. **filename.js**`)
-  - Numbered Backtick Format (`### 1. `filename.js``)
+  - Numbered Backtick Format (`` ### 1. `filename.js` ``)
 
   The prose-prone formats (Standard Heading, Colon, Hash) only accept names
   that look like filenames (an extension or a path separator), so a document
@@ -140,6 +141,7 @@ Parses a Markdown string containing code blocks and returns an object with:
 Optional `format` parameter to specify a particular format to parse:
 
 - 'backtick-heading'
+- 'backtick'
 - 'file-bold'
 - 'numbered-backtick'
 - 'heading-bold'
@@ -240,7 +242,9 @@ type StreamingParserCallbacks = {
 - **onCodeLine**: Called for each line emitted from inside a code fence. Returns a Promise that should resolve when processing is complete.
 - **onNonCodeLine**: Called for each line outside code fences that is not a file header. Returns a Promise that should resolve when processing is complete.
 
-Currently, the streaming parser supports Bold Format (`**filename.js**`, including the file-action prefixes described above) and bare Backtick Format. Other batch header formats are not yet supported in streaming.
+The streaming parser supports all ten filename header formats listed above, including the prefixed Bold Format variant. The callback reports the same format labels as the batch parser for individual headers. Explicitly marked headers are emitted when their line is complete; the three prose-prone formats (Standard Heading, Colon, and Hash) wait for the next nonblank line to be an opening code fence. Unconfirmed plain headers are delivered to `onNonCodeLine`, including at the end of the stream.
+
+Streaming detects the format per header and can switch formats as files arrive. Batch parsing still selects one format for the document (or the explicitly requested format when it matches); full mixed-format batch parsing is a separate concern.
 
 ## Contributing
 

@@ -98,104 +98,96 @@ export function normalizePrefixedBoldHeaders(markdown: string): string {
   return lines.join("\n");
 }
 
-// Batch matching also requires a code fence; streaming matches header lines.
-const boldHeaderSource = /\*\*([^\n*]+?)\*\*(?:[^\n]*)\s*/.source;
-const backtickHeaderSource = /`([^`]+)`\s*:?\s*/.source;
+// Both parsers use the same ordered header definitions. Only the suffix
+// differs: batch parsing requires a full code block, while streaming
+// recognizes the header line. Numbered formats allow intervening commentary.
 const codeBlockSource = /\n```(?:\w+)?\n([\s\S]*?)```/.source;
+
+type FilenamePattern = {
+  key: string;
+  format: string;
+  headerSource: string;
+  batchSuffix?: string;
+  lineSuffix?: string;
+};
+
+const filenamePatterns: FilenamePattern[] = [
+  {
+    key: "backtick-heading",
+    format: "Backtick-Heading Format",
+    headerSource: /^\s*###\s*`([^`]+)`\s*/.source,
+  },
+  {
+    key: "backtick",
+    format: "Backtick Format",
+    headerSource: /^\s*`([^`]+)`\s*:?\s*/.source,
+  },
+  {
+    key: "file-bold",
+    format: "File Bold Format",
+    headerSource: /^\s*###\s*File:\s*\*\*(.+?)\*\*\s*/.source,
+  },
+  {
+    key: "numbered-backtick",
+    format: "Numbered Backtick Format",
+    headerSource: /^\s*###\s*\d+\.\s*`([^`]+)`/.source,
+    batchSuffix: /(?:[^\n]*\n)*?\s*```(?:\w+)?\n([\s\S]*?)```/.source,
+    lineSuffix: /[^\n]*/.source,
+  },
+  {
+    key: "heading-bold",
+    format: "Heading Bold Format",
+    headerSource: /^### \*\*([^\n`]+?)\*\*\s*/.source,
+  },
+  {
+    key: "standard-heading",
+    format: "Standard Heading Format",
+    headerSource: /^\s*###\s*(?!`|File:|\d+\.)\s*([^\n`]+?)\s*/.source,
+  },
+  {
+    key: "colon",
+    format: "Colon Format",
+    headerSource: /^\s*(?!###|\*\*|`)([^\n#*`]+?):\s*/.source,
+  },
+  {
+    key: "bold",
+    format: "Bold Format",
+    headerSource: /^\s*(?!###)\*\*([^\n*]+?)\*\*(?:[^\n]*)\s*/.source,
+  },
+  {
+    key: "hash",
+    format: "Hash Format",
+    headerSource: /^\s*# ([^\n`]+?)\s*/.source,
+  },
+  {
+    key: "numbered-bold",
+    format: "Numbered Bold Format",
+    headerSource: /^\s*\d+\.\s*\*\*([^\n`]+?)\*\*/.source,
+    batchSuffix: /[\s\S]*?\n```(?:\w+)?\n([\s\S]*?)```/.source,
+    lineSuffix: /[^\n]*/.source,
+  },
+];
 
 /** Fresh global regexes preserve batch format priority and matching state. */
 export function getBatchFilenamePatterns() {
-  const backtickHeadingRegex =
-    /^\s*###\s*`([^`]+)`\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
-  const bareBacktickFormatRegex = new RegExp(
-    /^\s*/.source + backtickHeaderSource + codeBlockSource,
-    "gm",
-  );
-  const fileBoldFormatRegex =
-    /^\s*###\s*File:\s*\*\*(.+?)\*\*\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
-  const numberedBacktickFormatRegex =
-    /^\s*###\s*\d+\.\s*`([^`]+)`(?:[^\n]*\n)*?\s*```(?:\w+)?\n([\s\S]*?)```/gm;
-  const standardHeadingRegex =
-    /^\s*###\s*(?!`|File:|\d+\.)\s*([^\n`]+?)\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
-  const colonFormatRegex =
-    /^\s*(?!###|\*\*|`)([^\n#*`]+?):\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
-  const hashFormatRegex = /^\s*# ([^\n`]+?)\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
-  const boldFormatRegex = new RegExp(
-    /^\s*(?!###)/.source + boldHeaderSource + codeBlockSource,
-    "gm",
-  );
-  const headingBoldFormatRegex =
-    /^### \*\*([^\n`]+?)\*\*\s*\n```(?:\w+)?\n([\s\S]*?)```/gm;
-  const numberedBoldFormatRegex =
-    /^\s*\d+\.\s*\*\*([^\n`]+?)\*\*[\s\S]*?\n```(?:\w+)?\n([\s\S]*?)```/gm;
-
-  // Associate each regex with a unique, lowercase key
-  const regexes = [
-    {
-      regex: backtickHeadingRegex,
-      format: "Backtick-Heading Format",
-      key: "backtick-heading",
-    },
-    {
-      regex: bareBacktickFormatRegex,
-      format: "Backtick Format",
-      key: "backtick",
-    },
-    {
-      regex: fileBoldFormatRegex,
-      format: "File Bold Format",
-      key: "file-bold",
-    },
-    {
-      regex: numberedBacktickFormatRegex,
-      format: "Numbered Backtick Format",
-      key: "numbered-backtick",
-    },
-    {
-      regex: headingBoldFormatRegex,
-      format: "Heading Bold Format",
-      key: "heading-bold",
-    },
-    {
-      regex: standardHeadingRegex,
-      format: "Standard Heading Format",
-      key: "standard-heading",
-    },
-    {
-      regex: colonFormatRegex,
-      format: "Colon Format",
-      key: "colon",
-    },
-    {
-      regex: boldFormatRegex,
-      format: "Bold Format",
-      key: "bold",
-    },
-    {
-      regex: hashFormatRegex,
-      format: "Hash Format",
-      key: "hash",
-    },
-    {
-      regex: numberedBoldFormatRegex,
-      format: "Numbered Bold Format",
-      key: "numbered-bold",
-    },
-  ];
-  return regexes;
+  return filenamePatterns.map(({ key, format, headerSource, batchSuffix }) => ({
+    key,
+    format,
+    regex: new RegExp(headerSource + (batchSuffix ?? codeBlockSource), "gm"),
+  }));
 }
 
-// Streaming recognizes the original two formats plus the prefixed bold variant.
-const streamingPatterns = [
-  {
-    regex: new RegExp(/^\s*/.source + boldHeaderSource + "$"),
-    format: "Bold Format",
-  },
-  {
-    regex: new RegExp(/^\s*/.source + backtickHeaderSource + "$"),
-    format: "Backtick Format",
-  },
-];
+/** Plain headers require code-fence context to distinguish them from prose. */
+export function isAmbiguousFilenameFormat(format: string): boolean {
+  return AMBIGUOUS_FORMATS.has(format);
+}
+
+const streamingPatterns = filenamePatterns.map(
+  ({ format, headerSource, lineSuffix }) => ({
+    format,
+    regex: new RegExp(headerSource + (lineSuffix ?? "") + "$"),
+  }),
+);
 
 export function matchStreamingFilename(line: string): {
   fileName: string;
@@ -208,7 +200,9 @@ export function matchStreamingFilename(line: string): {
   for (const { regex, format } of streamingPatterns) {
     const match = regex.exec(line);
     if (match) {
-      return { fileName: normalizeFileName(match[1], format), format };
+      const fileName = normalizeFileName(match[1], format);
+      if (!isAcceptedBatchFileName(fileName, format)) continue;
+      return { fileName, format };
     }
   }
   return null;

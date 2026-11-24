@@ -1,4 +1,7 @@
-import { matchStreamingFilename } from "./filenameFormats.js";
+import {
+  isAmbiguousFilenameFormat,
+  matchStreamingFilename,
+} from "./filenameFormats.js";
 
 export type StreamingParserCallbacks = {
   /**
@@ -34,6 +37,11 @@ export class StreamingMarkdownParser {
   private detectedFormat: string = "Unknown Format";
   private callbacks: StreamingParserCallbacks;
   private currentFileHasContent: boolean = false;
+  private pendingHeader: {
+    fileName: string;
+    format: string;
+    lines: string[];
+  } | null = null;
 
   constructor(callbacks: StreamingParserCallbacks) {
     this.callbacks = callbacks;
@@ -64,6 +72,33 @@ export class StreamingMarkdownParser {
       await this.processLine(this.buffer);
       this.buffer = "";
     }
+    // An ambiguous header at EOF without a fence is ordinary prose.
+    await this.resolvePendingHeader(false);
+  }
+
+  private async emitHeader(fileName: string, format: string) {
+    this.currentFileName = fileName;
+    this.currentFileHasContent = false;
+    this.detectedFormat = format;
+    await this.callbacks.onFileNameChange(fileName, format);
+  }
+
+  /**
+   * Confirm a plain filename header only when the next nonblank line is
+   * a fence. Otherwise replay the buffered lines as prose in their original order.
+   */
+  private async resolvePendingHeader(confirmed: boolean) {
+    const pending = this.pendingHeader;
+    if (!pending) return;
+    this.pendingHeader = null;
+    if (confirmed) {
+      await this.emitHeader(pending.fileName, pending.format);
+    }
+    if (this.callbacks.onNonCodeLine) {
+      for (const line of pending.lines.slice(confirmed ? 1 : 0)) {
+        await this.callbacks.onNonCodeLine(line);
+      }
+    }
   }
 
   /**
@@ -75,6 +110,14 @@ export class StreamingMarkdownParser {
    * @param line - A single line of text.
    */
   private async processLine(line: string) {
+    if (this.pendingHeader) {
+      if (line.trim() === "") {
+        this.pendingHeader.lines.push(line);
+        return;
+      }
+      await this.resolvePendingHeader(line.trim().startsWith("```"));
+    }
+
     // Check if the line is a code fence marker (could be "```" or "```lang")
     if (line.trim().startsWith("```")) {
       const wasInsideCodeFence = this.insideCodeFence;
@@ -106,11 +149,11 @@ export class StreamingMarkdownParser {
       const header = matchStreamingFilename(line);
       if (header) {
         const { fileName, format } = header;
-        // Reset content tracking for new file.
-        this.currentFileName = fileName;
-        this.currentFileHasContent = false;
-        this.detectedFormat = format;
-        await this.callbacks.onFileNameChange(fileName, format);
+        if (isAmbiguousFilenameFormat(format)) {
+          this.pendingHeader = { fileName, format, lines: [line] };
+        } else {
+          await this.emitHeader(fileName, format);
+        }
       } else if (this.callbacks.onNonCodeLine) {
         await this.callbacks.onNonCodeLine(line);
       }
