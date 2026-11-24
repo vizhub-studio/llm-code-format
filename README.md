@@ -26,7 +26,9 @@ The build creates **ESM**, **CommonJS**, and **type declarations**, as configure
 ## Features
 
 - Parse code blocks from various Markdown formats including:
-  - Bold Format (`**filename.js**`)
+  - Bold Format (`**filename.js**`), including file-action prefixes such as
+    `### Updated **filename.js**`, `### Modified **src/app.ts**`, and
+    `### New file: **App.tsx**`.
   - Backtick-Heading Format (`### `filename.js``)
   - Standard Heading Format (`### filename.js`)
   - Colon Format (`filename.js:`)
@@ -39,6 +41,10 @@ The build creates **ESM**, **CommonJS**, and **type declarations**, as configure
   The prose-prone formats (Standard Heading, Colon, Hash) only accept names
   that look like filenames (an extension or a path separator), so a document
   heading such as `### Notes.` is not mistaken for a file.
+  Prefixed bold headers also require a filename-shaped relative path or
+  extension; arbitrary prose and ambiguous multiple bold spans are not accepted.
+  The prefixed variant is reported as Bold Format and can coexist with plain
+  bold headers in a single batch.
 
 - Streaming parser for real-time code editing views
 - Serialize code files back to Markdown in a consistent format
@@ -234,7 +240,7 @@ type StreamingParserCallbacks = {
 - **onCodeLine**: Called for each line emitted from inside a code fence. Returns a Promise that should resolve when processing is complete.
 - **onNonCodeLine**: Called for each line outside code fences that is not a file header. Returns a Promise that should resolve when processing is complete.
 
-Currently, the streaming parser only supports the "Bold Format" (`**filename.js**`), but is designed to be extensible for supporting additional formats in the future.
+Currently, the streaming parser supports Bold Format (`**filename.js**`, including the file-action prefixes described above) and bare Backtick Format. Other batch header formats are not yet supported in streaming.
 
 ## Contributing
 

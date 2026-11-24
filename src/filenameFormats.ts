@@ -39,6 +39,65 @@ export function isAcceptedBatchFileName(name: string, format: string): boolean {
   return !AMBIGUOUS_FORMATS.has(format) || looksLikeFileName(name);
 }
 
+// Only explicit file-action labels are accepted, not arbitrary prose.
+// The optional Markdown heading marker and descriptive prefix are not part
+// of the filename. Keep existing unprefixed formats unchanged.
+const prefixedBoldHeader =
+  /^[ \t]*(?:#{1,6}[ \t]+)?(?:updated|modified|new|added|changed|revised|edited|created|update|modify|add|create|edit|replace|replacement)(?:[ \t]+file)?(?:[ \t]*:[ \t]*|[ \t]+)\*\*([^\r\n*]+?)\*\*(?:[ \t]*\([^*\r\n]*\)|[ \t]*:[^*\r\n]*)?[ \t]*$/i;
+
+/** Recognize a prefixed bold filename, with stricter checks for this new syntax. */
+function matchPrefixedBoldFilename(line: string): string | null {
+  const match = prefixedBoldHeader.exec(line);
+  if (!match) return null;
+  const name = normalizeFileName(match[1], "Bold Format");
+  // Require filename-like syntax and reject prose, URLs, and traversal.
+  if (!looksLikeFileName(name) || !/^[\w.@+-]+(?:\/[\w.@+-]+)*$/.test(name)) {
+    return null;
+  }
+  if (name.split("/").some((part) => part === "." || part === "..")) {
+    return null;
+  }
+  return name;
+}
+
+/**
+ * Canonicalize the new header variant before batch format detection.
+ * Only rewrite headers outside fenced blocks and followed by a supported
+ * opening fence. This preserves the legacy format priority and lets plain
+ * and prefixed bold filenames coexist without rewriting file contents.
+ */
+export function normalizePrefixedBoldHeaders(markdown: string): string {
+  const lines = markdown.split("\n");
+  let fence: string | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const marker = /^[ \t]*(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence !== null) {
+      if (
+        marker &&
+        marker[1][0] === fence[0] &&
+        marker[1].length >= fence.length &&
+        marker[2].trim() === ""
+      ) {
+        fence = null;
+      }
+      continue;
+    }
+    if (marker) {
+      fence = marker[1];
+      continue;
+    }
+    const name = matchPrefixedBoldFilename(line);
+    if (name === null) continue;
+    let next = i + 1;
+    while (next < lines.length && lines[next].trim() === "") next++;
+    if (next < lines.length && /^```(?:\w+)?$/.test(lines[next])) {
+      lines[i] = `**${name}**`;
+    }
+  }
+  return lines.join("\n");
+}
+
 // Batch matching also requires a code fence; streaming matches header lines.
 const boldHeaderSource = /\*\*([^\n*]+?)\*\*(?:[^\n]*)\s*/.source;
 const backtickHeaderSource = /`([^`]+)`\s*:?\s*/.source;
@@ -126,7 +185,7 @@ export function getBatchFilenamePatterns() {
   return regexes;
 }
 
-// Streaming intentionally recognizes only the original two formats for now.
+// Streaming recognizes the original two formats plus the prefixed bold variant.
 const streamingPatterns = [
   {
     regex: new RegExp(/^\s*/.source + boldHeaderSource + "$"),
@@ -142,6 +201,10 @@ export function matchStreamingFilename(line: string): {
   fileName: string;
   format: string;
 } | null {
+  const prefixed = matchPrefixedBoldFilename(line);
+  if (prefixed !== null) {
+    return { fileName: prefixed, format: "Bold Format" };
+  }
   for (const { regex, format } of streamingPatterns) {
     const match = regex.exec(line);
     if (match) {
